@@ -205,19 +205,6 @@ This keeps the full migration history intact and is safe to apply through the no
 
 For emergencies where a forward migration isn't fast enough, Neon has point-in-time restore. Go to the Neon console → Branches → Restore to point in time. Use this carefully it restores all data, not just schema.
 
-### Manual Rollback Workflow
-
-A separate workflow file (`.github/workflows/rollback.yml`) exists for controlled rollbacks. It's `workflow_dispatch` only it never runs automatically.
-
-**To use it:**
-1. Commit a rollback migration script (e.g. `V3__rollback_phone_column.sql`) to main
-2. Go to GitHub Actions → **DB Rollback — Manual Trigger**
-3. Click **Run workflow**, fill in the reason and version being rolled back
-4. Type `CONFIRM` in the confirmation field
-5. The pipeline applies the rollback migration and logs a full audit record
-
-The workflow also requires approval through the `production` GitHub Environment before it touches the database.
-
 ---
 
 ## 12. Running Flyway Locally
@@ -257,17 +244,3 @@ docker run --rm \
 | Migrate runs on a PR | Missing branch guard | Check that migrate job has `if: github.event_name != 'pull_request'`. |
 
 ---
-
-## 14. Interview Questions — What to Say
-
-**Why Flyway over Liquibase?**
-> "We looked at both. Liquibase is more powerful but the XML abstraction was unnecessary overhead for our use case. Flyway is SQL-first, so anyone who can read SQL can read our migrations without knowing the tool. It also has cleaner CI/CD integration out of the box."
-
-**Why separate the validate and migrate jobs?**
-> "Validate is read-only you can run it on every pull request without any risk. That gives developers early feedback before code is merged. Migrate only runs after a merge to main, and it's gated. A PR physically cannot touch the production database."
-
-**What happens if someone edits a migration after it's applied?**
-> "Flyway will catch it on the next run. It stores a checksum of every applied migration and verifies them before proceeding. The pipeline fails and nothing runs until the issue is resolved. The correct fix is always a new migration, not editing the old file."
-
-**How do you roll back a bad migration?**
-> "The short answer is you write a forward migration that undoes it. Flyway community doesn't support automatic undo. For real emergencies, Neon has point-in-time restore. We also have a separate rollback workflow with a manual confirmation gate and full audit logging so there's always a record of who did what and why."
