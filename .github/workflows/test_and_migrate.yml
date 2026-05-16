@@ -65,7 +65,6 @@ jobs:
             -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
             ${{ env.FLYWAY_IMAGE }} \
-            -outOfOrder=false \
             -connectRetries=3 \
             validate 
 
@@ -107,7 +106,6 @@ jobs:
             -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
             ${{ env.FLYWAY_IMAGE }} \
-            -outOfOrder=false \
             -validateOnMigrate=true \
             -connectRetries=3 \
             migrate
