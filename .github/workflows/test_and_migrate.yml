@@ -91,7 +91,7 @@ jobs:
             -connectRetries=3 \
             validate 
 
-  migrate-production:
+  migrate-production: 
     name: "Flyway Migrate Production"
     runs-on: ubuntu-latest
     needs: validate-migrations
