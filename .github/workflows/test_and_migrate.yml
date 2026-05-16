@@ -89,7 +89,7 @@ jobs:
             ${{ env.FLYWAY_IMAGE }} \
             -outOfOrder=false \
             -connectRetries=3 \
-            validate
+            validate 
 
   migrate-production:
     name: "Flyway Migrate Production"
