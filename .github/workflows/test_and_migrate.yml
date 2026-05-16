@@ -15,7 +15,10 @@ permissions:
   contents: read
 
 env:
-  FLYWAY_VERSION: "10.15.0"
+  FLYWAY_VERSION: "12.6.0"
+  FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
+  FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
+  FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
 
 jobs:
 
