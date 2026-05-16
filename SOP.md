@@ -115,7 +115,7 @@ GitHub Actions triggers
 | Push / Merge to `main` | Lint → Validate → Migrate |
 | Manual (`workflow_dispatch`) | All jobs |
 
-**Why separate validate and migrate?** Validate is read-only — safe to run on every PR so developers catch issues early. Migrate actually changes the database, so it only runs after a merge to main. A PR can never touch production, by design.
+**Why separate validate and migrate?** Validate is read-only safe to run on every PR so developers catch issues early. Migrate actually changes the database, so it only runs after a merge to main. A PR can never touch production, by design.
 
 The pipeline also uses `cancel-in-progress: false` on the concurrency group. A migration that's already running will never be killed halfway through.
 
@@ -152,7 +152,7 @@ db/
 V{version}__{description}.sql
 ```
 
-The version number must be a unique integer. The double underscore is required. Keep descriptions readable — `V3__add_audit_log` is better than `V3__changes`.
+The version number must be a unique integer. The double underscore is required. Keep descriptions readable `V3__add_audit_log` is better than `V3__changes`.
 
 **Never edit a migration file after it's been applied.** Flyway stores a checksum of every applied migration. If the file changes, the next pipeline run will fail immediately. The fix is always to write a new migration, not edit the old one.
 
@@ -160,7 +160,7 @@ The version number must be a unique integer. The double underscore is required. 
 
 ## 9. Neon Setup
 
-Sign up at [https://neon.tech](https://neon.tech). Create a project and copy the connection string — it goes into the `FLYWAY_URL` secret.
+Sign up at [https://neon.tech](https://neon.tech). Create a project and copy the connection string it goes into the `FLYWAY_URL` secret.
 
 Neon supports **database branching**, which is useful for this workflow. You can create a branch from a production snapshot and test migrations against it before pushing to main. It's effectively a free staging environment with real production data shape.
 
@@ -170,19 +170,19 @@ Neon supports **database branching**, which is useful for this workflow. You can
 
 The risk with database changes is that the old application version and the new schema version both need to work at the same time during a deployment. The expand-and-contract pattern handles this.
 
-**Phase 1 — Expand.** Add new columns as nullable. The old app still works.
+**Phase 1 Expand.** Add new columns as nullable. The old app still works.
 ```sql
 -- V3__add_phone_column.sql
 ALTER TABLE users ADD COLUMN phone VARCHAR(20);
 ```
 
-**Phase 2 — Migrate data.** Fill in the new column once the app is deployed.
+**Phase 2 Migrate data.** Fill in the new column once the app is deployed.
 ```sql
 -- V4__backfill_phone.sql
 UPDATE users SET phone = 'UNKNOWN' WHERE phone IS NULL;
 ```
 
-**Phase 3 — Contract.** Remove old structures after the new app version is stable.
+**Phase 3 Contract.** Remove old structures after the new app version is stable.
 ```sql
 -- V5__drop_old_phone.sql
 ALTER TABLE users DROP COLUMN old_phone;
@@ -194,7 +194,7 @@ Don't combine phase 1 and phase 3 into a single migration that runs at deploy ti
 
 ## 11. Rollback Strategy
 
-Flyway community edition doesn't have a built-in undo command — that's a paid feature. The standard approach is the **forward-rollback**: write a new migration that reverses the previous change.
+Flyway community edition doesn't have a built-in undo command that's a paid feature. The standard approach is the **forward-rollback**: write a new migration that reverses the previous change.
 
 ```sql
 -- V3__rollback_phone_column.sql
@@ -203,11 +203,11 @@ ALTER TABLE users DROP COLUMN IF EXISTS phone;
 
 This keeps the full migration history intact and is safe to apply through the normal pipeline.
 
-For emergencies where a forward migration isn't fast enough, Neon has point-in-time restore. Go to the Neon console → Branches → Restore to point in time. Use this carefully — it restores all data, not just schema.
+For emergencies where a forward migration isn't fast enough, Neon has point-in-time restore. Go to the Neon console → Branches → Restore to point in time. Use this carefully it restores all data, not just schema.
 
 ### Manual Rollback Workflow
 
-A separate workflow file (`.github/workflows/rollback.yml`) exists for controlled rollbacks. It's `workflow_dispatch` only — it never runs automatically.
+A separate workflow file (`.github/workflows/rollback.yml`) exists for controlled rollbacks. It's `workflow_dispatch` only it never runs automatically.
 
 **To use it:**
 1. Commit a rollback migration script (e.g. `V3__rollback_phone_column.sql`) to main
@@ -264,7 +264,7 @@ docker run --rm \
 > "We looked at both. Liquibase is more powerful but the XML abstraction was unnecessary overhead for our use case. Flyway is SQL-first, so anyone who can read SQL can read our migrations without knowing the tool. It also has cleaner CI/CD integration out of the box."
 
 **Why separate the validate and migrate jobs?**
-> "Validate is read-only — you can run it on every pull request without any risk. That gives developers early feedback before code is merged. Migrate only runs after a merge to main, and it's gated. A PR physically cannot touch the production database."
+> "Validate is read-only you can run it on every pull request without any risk. That gives developers early feedback before code is merged. Migrate only runs after a merge to main, and it's gated. A PR physically cannot touch the production database."
 
 **What happens if someone edits a migration after it's applied?**
 > "Flyway will catch it on the next run. It stores a checksum of every applied migration and verifies them before proceeding. The pipeline fails and nothing runs until the issue is resolved. The correct fix is always a new migration, not editing the old file."
