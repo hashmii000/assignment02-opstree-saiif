@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  FLYWAY_VERSION: "12.6.0"
+  FLYWAY_IMAGE: "flyway/flyway:10-alpine"
   FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
   FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
   FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
@@ -64,23 +64,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Flyway ${{ env.FLYWAY_VERSION }}
-        working-directory: /tmp
-        run: |
-          curl -fsSL \
-            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            -o flyway.tar.gz
-          tar -xzf flyway.tar.gz -C /opt
-          ln -sf "/opt/flyway-${FLYWAY_VERSION}/flyway" /usr/local/bin/flyway
-          flyway -v
-
+      # Using the official Flyway Docker image — no install needed,
+      # works with any Flyway version, no Maven Central URL issues.
       - name: Flyway validate
         run: |
-          flyway \
+          docker run --rm \
+            -v "$(pwd)/migrations:/flyway/sql" \
+            ${{ env.FLYWAY_IMAGE }} \
             -url="${{ secrets.FLYWAY_URL }}" \
             -user="${{ secrets.FLYWAY_USER }}" \
             -password="${{ secrets.FLYWAY_PASSWORD }}" \
-            -locations="filesystem:migrations" \
             -outOfOrder=false \
             validate
 
@@ -103,40 +96,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Flyway ${{ env.FLYWAY_VERSION }}
-        working-directory: /tmp
-        run: |
-          curl -fsSL \
-            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            -o flyway.tar.gz
-          tar -xzf flyway.tar.gz -C /opt
-          ln -sf "/opt/flyway-${FLYWAY_VERSION}/flyway" /usr/local/bin/flyway
-
       - name: Flyway info — pending migrations preview
         run: |
-          flyway \
+          docker run --rm \
+            -v "$(pwd)/migrations:/flyway/sql" \
+            ${{ env.FLYWAY_IMAGE }} \
             -url="${{ secrets.FLYWAY_URL }}" \
             -user="${{ secrets.FLYWAY_USER }}" \
             -password="${{ secrets.FLYWAY_PASSWORD }}" \
-            -locations="filesystem:migrations" \
             info
 
       - name: Flyway migrate
         run: |
-          flyway \
+          docker run --rm \
+            -v "$(pwd)/migrations:/flyway/sql" \
+            ${{ env.FLYWAY_IMAGE }} \
             -url="${{ secrets.FLYWAY_URL }}" \
             -user="${{ secrets.FLYWAY_USER }}" \
             -password="${{ secrets.FLYWAY_PASSWORD }}" \
-            -locations="filesystem:migrations" \
+            -outOfOrder=false \
+            -validateOnMigrate=true \
             migrate
 
       - name: Flyway info — post-migration state
+        if: always()
         run: |
-          flyway \
+          docker run --rm \
+            -v "$(pwd)/migrations:/flyway/sql" \
+            ${{ env.FLYWAY_IMAGE }} \
             -url="${{ secrets.FLYWAY_URL }}" \
             -user="${{ secrets.FLYWAY_USER }}" \
             -password="${{ secrets.FLYWAY_PASSWORD }}" \
-            -locations="filesystem:migrations" \
             info
 
   notify-on-failure:
