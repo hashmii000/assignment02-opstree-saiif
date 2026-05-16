@@ -1,0 +1,32 @@
+name: Test and Migrate the DB
+
+on:
+  push:
+    branch: ["main"]
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
+      FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
+      FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
+  steps:
+    -
+       name: checkout code
+       uses: actions/checkout@v4
+    -
+       name: install flway
+       run: |
+             sudo apt install flway -y
+    -
+       name: validate flyway
+       run: |
+             cd db
+             flyway validate
+    -
+       name: migrate flyway
+       run: |
+             flway migrate
+
