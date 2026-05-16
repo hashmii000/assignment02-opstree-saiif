@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  FLYWAY_IMAGE: "flyway/flyway:10-alpine"
+  FLYWAY_IMAGE: "flyway/flyway:latest"
   FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
   FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
   FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
