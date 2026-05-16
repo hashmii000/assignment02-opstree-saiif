@@ -67,12 +67,7 @@ jobs:
       - name: Install Flyway ${{ env.FLYWAY_VERSION }}
         working-directory: /tmp
         run: |
-          curl -fsSL \
-            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
-            -o flyway.tar.gz
-          tar -xzf flyway.tar.gz -C /opt
-          ln -sf "/opt/flyway-${FLYWAY_VERSION}/flyway" /usr/local/bin/flyway
-          flyway -v
+          sudo apt install flyway -y
 
       - name: Flyway validate
         run: |
