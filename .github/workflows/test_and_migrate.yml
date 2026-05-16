@@ -110,7 +110,7 @@ jobs:
         run: |
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/sql" \
-            ${{ env.FLYWAY_IMAGE }} \
+            ${{ env.FLYWAY_IMAGE }} \ 
             -url="${{ secrets.FLYWAY_URL }}" \
             -user="${{ secrets.FLYWAY_USER }}" \
             -password="${{ secrets.FLYWAY_PASSWORD }}" \
