@@ -20,7 +20,7 @@
 
 This document covers how database schema changes are managed, validated, and deployed in this project. The short version: no one runs SQL scripts manually against production anymore. Everything goes through GitHub Actions.
 
-The goal was to make database deployments as boring and repeatable as possible — same process every time, no surprises.
+The goal was to make database deployments as boring and repeatable as possible same process every time, no surprises.
 
 ---
 
@@ -34,7 +34,7 @@ Secondary goals include making rollbacks less stressful, keeping all environment
 
 ## 3. Why Manual Releases Break
 
-Most database incidents aren't caused by bad SQL — they're caused by good SQL run at the wrong time, in the wrong environment, or in the wrong order. Manual processes are just too easy to get wrong.
+Most database incidents aren't caused by bad SQL they're caused by good SQL run at the wrong time, in the wrong environment, or in the wrong order. Manual processes are just too easy to get wrong.
 
 | Challenge | Impact |
 |-----------|--------|
@@ -59,17 +59,17 @@ Most database incidents aren't caused by bad SQL — they're caused by good SQL 
 
 ---
 
-## 5. Tool Selection — Why Flyway
+## 5. Tool Selection Why Flyway
 
 Before picking Flyway, we looked at a few other options.
 
 **Liquibase** was the obvious contender. It's powerful and supports XML, YAML, and SQL formats. The problem is that XML abstraction is overkill when you just want to write plain SQL. For teams where DBAs need to read and review migration files, Flyway's `.sql` format is just cleaner.
 
-**Alembic** is great — if you're on Python. We're on Node.js, so pulling in a Python dependency purely for migrations didn't make sense.
+**Alembic** is great if you're on Python. We're on Node.js, so pulling in a Python dependency purely for migrations didn't make sense.
 
 **node-pg-migrate** felt like the "obvious" choice given the stack. But mixing JavaScript logic into migration files makes them harder to review and less portable. A DBA shouldn't need to understand JavaScript closures to read a migration.
 
-**Custom shell scripts** were considered for their simplicity. They work fine until they don't — and when they break, you're debugging a DIY migration system instead of shipping features.
+**Custom shell scripts** were considered for their simplicity. They work fine until they don't and when they break, you're debugging a DIY migration system instead of shipping features.
 
 Flyway won because it's SQL-first, has no runtime dependency on the application stack, validates checksums on every run, and integrates cleanly with Docker. It does exactly what we need and nothing more.
 
@@ -87,12 +87,10 @@ GitHub Actions triggers
 ┌──────────────────────────────────┐
 │  JOB 1 — Lint & Scan             │
 │  • Gitleaks secret scan          │
-│  • sqlfluff SQL syntax lint      │
 └──────────────┬───────────────────┘
                ↓
 ┌──────────────────────────────────┐
 │  JOB 2 — Flyway Validate         │
-│  • Normalize JDBC URL            │
 │  • flyway validate (read-only)   │
 └──────────────┬───────────────────┘
                ↓  (main branch push only)
