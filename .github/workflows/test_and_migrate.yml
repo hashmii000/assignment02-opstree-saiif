@@ -146,7 +146,7 @@ jobs:
       - name: Report failure details
         run: |
           echo "============================================"
-          echo "  DB Release Pipeline FAILED"
+          echo "  DB Release Pipeline FAILED" 
           echo "============================================"
           echo "  Branch  : ${{ github.ref_name }}"
           echo "  Actor   : ${{ github.actor }}"
