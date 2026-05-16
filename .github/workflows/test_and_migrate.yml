@@ -103,7 +103,7 @@ jobs:
         run: |
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
             ${{ env.FLYWAY_IMAGE }} \
