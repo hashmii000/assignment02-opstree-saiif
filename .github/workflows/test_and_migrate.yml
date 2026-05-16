@@ -1,32 +1,155 @@
-name: Test and Migrate the DB
+name: DB Release — Test and Migrate
 
 on:
   push:
-    branch: ["main"]
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: db-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLYWAY_VERSION: "10.15.0"
 
 jobs:
-  validate-and-deploy:
-    runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
-      FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
-      FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
-  steps:
-    -
-       name: checkout code
-       uses: actions/checkout@v4
-    -
-       name: install flway
-       run: |
-             sudo apt install flway -y
-    -
-       name: validate flyway
-       run: |
-             cd db
-             flyway validate
-    -
-       name: migrate flyway
-       run: |
-             flway migrate
 
+  lint-migrations:
+    name: "Lint & Scan SQL Migrations"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan — migration files
+        uses: trufflesecurity/trufflehog-actions-scan@v3.82.10
+        with:
+          path: ./db/migrations
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+      - name: Install sqlfluff
+        run: pip install sqlfluff --quiet
+
+      - name: Lint SQL migration files
+        run: |
+          sqlfluff lint db/migrations/ \
+            --dialect postgres \
+            --templater raw \
+            --format github-annotation \
+            --annotation-level warning \
+            || true
+
+  validate-migrations:
+    name: "Flyway Validate"
+    runs-on: ubuntu-latest
+    needs: lint-migrations
+
+    defaults:
+      run:
+        working-directory: db
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Flyway ${{ env.FLYWAY_VERSION }}
+        working-directory: /tmp
+        run: |
+          curl -fsSL \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            -o flyway.tar.gz
+          tar -xzf flyway.tar.gz -C /opt
+          ln -sf "/opt/flyway-${FLYWAY_VERSION}/flyway" /usr/local/bin/flyway
+          flyway -v
+
+      - name: Flyway validate
+        run: |
+          flyway \
+            -url="${{ secrets.FLYWAY_URL }}" \
+            -user="${{ secrets.FLYWAY_USER }}" \
+            -password="${{ secrets.FLYWAY_PASSWORD }}" \
+            -locations="filesystem:migrations" \
+            -outOfOrder=false \
+            validate
+
+  migrate-production:
+    name: "Flyway Migrate Production"
+    runs-on: ubuntu-latest
+    needs: validate-migrations
+
+    # Only run on actual push to main — never on pull requests
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: production
+
+    defaults:
+      run:
+        working-directory: db
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Flyway ${{ env.FLYWAY_VERSION }}
+        working-directory: /tmp
+        run: |
+          curl -fsSL \
+            "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+            -o flyway.tar.gz
+          tar -xzf flyway.tar.gz -C /opt
+          ln -sf "/opt/flyway-${FLYWAY_VERSION}/flyway" /usr/local/bin/flyway
+
+      - name: Flyway info — pending migrations preview
+        run: |
+          flyway \
+            -url="${{ secrets.FLYWAY_URL }}" \
+            -user="${{ secrets.FLYWAY_USER }}" \
+            -password="${{ secrets.FLYWAY_PASSWORD }}" \
+            -locations="filesystem:migrations" \
+            info
+
+      - name: Flyway migrate
+        run: |
+          flyway \
+            -url="${{ secrets.FLYWAY_URL }}" \
+            -user="${{ secrets.FLYWAY_USER }}" \
+            -password="${{ secrets.FLYWAY_PASSWORD }}" \
+            -locations="filesystem:migrations" \
+            migrate
+
+      - name: Flyway info — post-migration state
+        run: |
+          flyway \
+            -url="${{ secrets.FLYWAY_URL }}" \
+            -user="${{ secrets.FLYWAY_USER }}" \
+            -password="${{ secrets.FLYWAY_PASSWORD }}" \
+            -locations="filesystem:migrations" \
+            info
+
+  notify-on-failure:
+    name: "Failure Notification"
+    runs-on: ubuntu-latest
+    needs: [lint-migrations, validate-migrations, migrate-production]
+    if: failure()
+
+    steps:
+      - name: Report failure details
+        run: |
+          echo "============================================"
+          echo "  DB Release Pipeline FAILED"
+          echo "============================================"
+          echo "  Branch  : ${{ github.ref_name }}"
+          echo "  Actor   : ${{ github.actor }}"
+          echo "  Commit  : ${{ github.sha }}"
+          echo "  Run URL : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "============================================"
