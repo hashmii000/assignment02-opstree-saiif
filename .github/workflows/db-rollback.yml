@@ -1,22 +1,12 @@
-name: DB Rollback — Manual Trigger
+name: DB Rollback Manual Trigger
 
-# ─────────────────────────────────────────────────────────────
-# This workflow is MANUAL ONLY.
-# It is never triggered automatically by a push or PR.
-#
-# When to use:
-#   A migration has been applied to production and needs to be
-#   reversed. The engineer must first commit a rollback migration
-#   script to the repo (e.g. V3__rollback_phone_column.sql),
-#   then trigger this workflow to apply it.
-#
 # IMPORTANT:
 #   Flyway community edition does not support automatic undo.
 #   The forward-rollback pattern is used here:
-#     → Write a new migration that reverses the previous change
-#     → Trigger this workflow to apply it
-#     → The database state is corrected without losing history
-# ─────────────────────────────────────────────────────────────
+#     Write a new migration that reverses the previous change
+#     Trigger this workflow to apply it
+#     The database state is corrected without losing history
+
 on:
   workflow_dispatch:
     inputs:
@@ -52,35 +42,24 @@ jobs:
   # Safety check — abort if confirmation is wrong
   # ═══════════════════════════════════════════
   confirm-rollback:
-    name: "🔒 Confirm Rollback Intent"
+    name: "Confirm Rollback Intent"
     runs-on: ubuntu-latest
 
     steps:
       - name: Verify confirmation input
         run: |
-          echo "============================================"
-          echo "  DB ROLLBACK INITIATED"
-          echo "============================================"
-          echo "  Triggered by : ${{ github.actor }}"
-          echo "  Reason       : ${{ inputs.reason }}"
-          echo "  Rolling back : ${{ inputs.migration_version }}"
-          echo "  Run URL      : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          echo "============================================"
-
           if [[ "${{ inputs.confirmed }}" != "CONFIRM" ]]; then
             echo ""
-            echo "❌ Confirmation not received. You must type CONFIRM to proceed."
+            echo "Confirmation not received. You must type CONFIRM to proceed."
             echo "   Aborting rollback."
             exit 1
           fi
 
-          echo "✅ Confirmation received. Proceeding with rollback."
+          echo "Confirmation received. Proceeding with rollback."
 
-  # ═══════════════════════════════════════════
-  # Apply the rollback migration
-  # ═══════════════════════════════════════════
+
   rollback-production:
-    name: "⏪ Apply Rollback Migration"
+    name: "Apply Rollback Migration"
     runs-on: ubuntu-latest
     needs: confirm-rollback
 
@@ -95,46 +74,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Normalize JDBC URL
-        run: |
-          RAW="$FLYWAY_URL"
-          if [[ "$RAW" == postgresql://* ]]; then
-            JDBC_URL="jdbc:${RAW}"
-          elif [[ "$RAW" == postgres://* ]]; then
-            JDBC_URL="jdbc:postgresql://${RAW#postgres://}"
-          else
-            JDBC_URL="$RAW"
-          fi
-          JDBC_URL="${JDBC_URL//&channel_binding=require/}"
-          JDBC_URL="${JDBC_URL//\?channel_binding=require/}"
-          echo "::add-mask::$JDBC_URL"
-          echo "JDBC_URL=$JDBC_URL" >> "$GITHUB_ENV"
-
-      - name: Flyway info — current state before rollback
+      - name: Flyway info current state before rollback
         run: |
           echo "--- Schema state BEFORE rollback ---" > flyway-rollback-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{secrets.FLYWAY_URL}}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -connectRetries=3 \
             info | tee -a flyway-rollback-report.txt
 
-      - name: Flyway migrate — apply rollback script
+      - name: Flyway migrate apply rollback script
         run: |
           echo -e "\n--- Applying rollback migration for ${{ inputs.migration_version }} ---" >> flyway-rollback-report.txt
           echo "--- Reason: ${{ inputs.reason }} ---" >> flyway-rollback-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{secrets.FLYWAY_URL}}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -outOfOrder=false \
-            -validateOnMigrate=true \
-            -connectRetries=3 \
             migrate | tee -a flyway-rollback-report.txt
 
       - name: Flyway info — final state after rollback
@@ -143,11 +103,10 @@ jobs:
           echo -e "\n--- Schema state AFTER rollback ---" >> flyway-rollback-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{secrets.FLYWAY_URL}}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -connectRetries=3 \
             info | tee -a flyway-rollback-report.txt
 
       - name: Rollback audit log
