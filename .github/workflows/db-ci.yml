@@ -1,4 +1,4 @@
-name: DB CI — Validation & Scan
+name: DB CI Validation & Scan
 
 on:
   push:
