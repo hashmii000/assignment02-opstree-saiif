@@ -59,19 +59,26 @@ Most database incidents aren't caused by bad SQL they're caused by good SQL run 
 
 ---
 
-## 5. Tool Selection Why Flyway
+## 5. Tool Selection — Why Flyway
 
-Before picking Flyway, we looked at a few other options.
+Before picking Flyway, we looked at a few other options. The two main industry standards are Flyway and Liquibase, but we also evaluated stack-specific tools.
 
-**Liquibase** was the obvious contender. It's powerful and supports XML, YAML, and SQL formats. The problem is that XML abstraction is overkill when you just want to write plain SQL. For teams where DBAs need to read and review migration files, Flyway's `.sql` format is just cleaner.
+### Flyway vs. Liquibase
+**Liquibase** is the heavyweight contender. It’s incredibly powerful, supporting XML, YAML, JSON, and SQL formats, and it has built-in rollback capabilities even in its free version. 
 
-**Alembic** is great if you're on Python. We're on Node.js, so pulling in a Python dependency purely for migrations didn't make sense.
+However, we chose **Flyway** over Liquibase for three main reasons:
+1. **Simplicity:** Flyway is strictly SQL-first. Liquibase's flexibility (XML/YAML) often leads to unnecessary abstraction. When a DBA needs to review a migration, plain `.sql` is always better than XML tags.
+2. **Learning Curve:** Flyway requires zero new syntax to learn. If you know SQL, you know Flyway.
+3. **CI/CD Fit:** Flyway’s CLI and Docker image are incredibly lightweight, making it frictionless to drop into GitHub Actions without heavy Java dependencies.
+
+### Other Tools Evaluated
+**Alembic** is great — if you're on Python. We're on Node.js, so pulling in a Python dependency purely for migrations didn't make sense.
 
 **node-pg-migrate** felt like the "obvious" choice given the stack. But mixing JavaScript logic into migration files makes them harder to review and less portable. A DBA shouldn't need to understand JavaScript closures to read a migration.
 
-**Custom shell scripts** were considered for their simplicity. They work fine until they don't and when they break, you're debugging a DIY migration system instead of shipping features.
+**Custom shell scripts** were considered for their simplicity. They work fine until they don't — and when they break, you're debugging a DIY migration system instead of shipping features.
 
-Flyway won because it's SQL-first, has no runtime dependency on the application stack, validates checksums on every run, and integrates cleanly with Docker. It does exactly what we need and nothing more.
+Ultimately, Flyway won because it validates checksums out-of-the-box, has no runtime dependency on our app stack, and enforces a clean, SQL-only approach.
 
 ---
 
