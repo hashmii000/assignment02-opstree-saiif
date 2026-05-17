@@ -1,8 +1,6 @@
 name: DB CD — Continuous Delivery
 
 on:
-  # The manager requested Continuous Delivery rather than Continuous Deployment.
-  # This pipeline is triggered manually by an authorized user.
   workflow_dispatch:
 
 concurrency:
@@ -34,31 +32,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Normalize JDBC URL
-        run: |
-          RAW="$FLYWAY_URL"
-          if [[ "$RAW" == postgresql://* ]]; then
-            JDBC_URL="jdbc:${RAW}"
-          elif [[ "$RAW" == postgres://* ]]; then
-            JDBC_URL="jdbc:postgresql://${RAW#postgres://}"
-          else
-            JDBC_URL="$RAW"
-          fi
-          JDBC_URL="${JDBC_URL//&channel_binding=require/}"
-          JDBC_URL="${JDBC_URL//\?channel_binding=require/}"
-          echo "::add-mask::$JDBC_URL"
-          echo "JDBC_URL=$JDBC_URL" >> "$GITHUB_ENV"
-
       - name: Flyway info — pending migrations preview
         run: |
           echo "--- State BEFORE Migration ---" > flyway-cd-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -connectRetries=3 \
             info | tee -a flyway-cd-report.txt
 
       - name: Flyway migrate
@@ -66,13 +48,10 @@ jobs:
           echo -e "\n--- Migration Execution Logs ---" >> flyway-cd-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -outOfOrder=false \
-            -validateOnMigrate=true \
-            -connectRetries=3 \
             migrate | tee -a flyway-cd-report.txt
 
       - name: Flyway info — post-migration state
@@ -81,11 +60,10 @@ jobs:
           echo -e "\n--- State AFTER Migration ---" >> flyway-cd-report.txt
           docker run --rm \
             -v "$(pwd)/migrations:/flyway/migrations" \
-            -e FLYWAY_URL="$JDBC_URL" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="$FLYWAY_USER" \
             -e FLYWAY_PASSWORD="$FLYWAY_PASSWORD" \
             ${{ env.FLYWAY_IMAGE }} \
-            -connectRetries=3 \
             info | tee -a flyway-cd-report.txt
 
       - name: Upload CD Report
