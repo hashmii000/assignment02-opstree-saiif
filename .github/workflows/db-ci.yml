@@ -2,9 +2,11 @@ name: DB CI Validation & Scan
 
 on:
 push:
-branches: ["main"]
+branches:
+- main
 pull_request:
-branches: ["main"]
+branches:
+- main
 workflow_dispatch:
 
 concurrency:
@@ -22,7 +24,6 @@ lint-and-scan:
 name: Lint & Scan SQL Migrations
 runs-on: ubuntu-latest
 
-
 steps:
   - name: Checkout Code
     uses: actions/checkout@v4
@@ -38,9 +39,7 @@ steps:
 
   - name: Lint SQL Files
     run: |
-      sqlfluff lint db/migrations \
-        --dialect postgres \
-        --format human > sql-lint-report.txt || true
+      sqlfluff lint db/migrations --dialect postgres --format human > sql-lint-report.txt || true
 
   - name: Upload SQLFluff Report
     uses: actions/upload-artifact@v4
@@ -48,12 +47,10 @@ steps:
       name: sql-lint-report
       path: sql-lint-report.txt
 
-
 validate-migrations:
 name: Flyway Validate
 runs-on: ubuntu-latest
 needs: lint-and-scan
-
 
 steps:
   - name: Checkout Code
@@ -75,4 +72,3 @@ steps:
     with:
       name: flyway-validate-report
       path: flyway-validate-report.txt
-
