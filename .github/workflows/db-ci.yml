@@ -1,0 +1,75 @@
+name: DB CI Validation & Scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: db-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLYWAY_IMAGE: "flyway/flyway:12.6.0"
+  FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
+  FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
+  FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
+
+jobs:
+  lint-and-scan:
+    name: Lint & Scan SQL Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+
+      - name: Install SQLFluff
+        run: |
+          pip install sqlfluff
+
+      - name: Lint SQL Migration Files
+        run: |
+          sqlfluff lint db/migrations \
+            --dialect postgres \
+            --format human > sql-lint-report.txt || true
+
+      - name: Upload SQLFluff Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: sql-lint-report
+          path: sql-lint-report.txt
+
+  validate-migrations:
+    name: Flyway Validate
+    runs-on: ubuntu-latest
+    needs: lint-and-scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Flyway Validate
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            flyway/flyway:12.6.0 \
+            validate | tee flyway-validate-report.txt
+
+      - name: Upload Flyway Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyway-validate-report
+          path: flyway-validate-report.txt
