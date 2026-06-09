@@ -16,12 +16,9 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  FLYWAY_IMAGE: "flyway/flyway:12.6.0"
-
 jobs:
   lint-and-scan:
-    name: "Lint & Scan SQL Migrations"
+    name: Lint & Scan SQL Migrations
     runs-on: ubuntu-latest
 
     steps:
@@ -41,7 +38,17 @@ jobs:
         run: |
           sqlfluff lint db/migrations \
             --dialect postgres \
-            --format human > sql-lint-report.txt || true
+            --format human > sql-lint-report.txt
+
+      - name: Validate Migration Naming
+        run: |
+          for file in db/migrations/*.sql; do
+            filename=$(basename "$file")
+            if ! [[ $filename =~ ^V[0-9]+__.*\.sql$ ]]; then
+              echo "Invalid migration name: $filename"
+              exit 1
+            fi
+          done
 
       - name: Upload SQLFluff Report
         uses: actions/upload-artifact@v4
@@ -50,7 +57,7 @@ jobs:
           path: sql-lint-report.txt
 
   validate-migrations:
-    name: "Flyway Validate"
+    name: Flyway Validate
     runs-on: ubuntu-latest
     needs: lint-and-scan
 
@@ -58,15 +65,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Flyway Validate
+      - name: Flyway Info
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}/db/migrations:/flyway/migrations" \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
             -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
-            flyway/flyway:12.6.0 \
-            -locations=filesystem:/flyway/migrations \
+            redgate/flyway:latest \
+            info
+
+      - name: Flyway Validate
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            redgate/flyway:latest \
             validate | tee flyway-validate-report.txt
 
       - name: Upload Flyway Validation Report

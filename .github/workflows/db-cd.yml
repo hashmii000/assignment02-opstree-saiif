@@ -10,12 +10,14 @@ jobs:
   migrate:
     name: Flyway Migrate
     runs-on: ubuntu-latest
+    environment:
+      name: production
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Flyway Info
+      - name: Flyway Info Before Deployment
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
@@ -24,6 +26,16 @@ jobs:
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
             redgate/flyway:latest \
             info
+
+      - name: Flyway Validate
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            redgate/flyway:latest \
+            validate
 
       - name: Flyway Migrate
         run: |
@@ -35,7 +47,17 @@ jobs:
             redgate/flyway:latest \
             migrate | tee flyway-migrate-report.txt
 
-      - name: Upload Flyway Migration Report
+      - name: Flyway Info After Deployment
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            redgate/flyway:latest \
+            info
+
+      - name: Upload Migration Report
         uses: actions/upload-artifact@v4
         with:
           name: flyway-migrate-report
