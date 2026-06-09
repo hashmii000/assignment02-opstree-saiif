@@ -1,0 +1,33 @@
+name: DB CD Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Flyway Migrate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Flyway Migrate
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/migrations" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            flyway/flyway:12.6.0 \
+            -locations=filesystem:/flyway/migrations \
+            migrate | tee flyway-migrate-report.txt
+
+      - name: Upload Flyway Migration Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: flyway-migrate-report
+          path: flyway-migrate-report.txt
