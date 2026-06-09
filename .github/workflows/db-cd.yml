@@ -15,15 +15,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Flyway Migrate
+      - name: Flyway Info
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}/db/migrations:/flyway/migrations" \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
             -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
             -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
             -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
-            flyway/flyway:12.6.0 \
-            -locations=filesystem:/flyway/migrations \
+            redgate/flyway:latest \
+            info
+
+      - name: Flyway Migrate
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/db/migrations:/flyway/sql" \
+            -e FLYWAY_URL="${{ secrets.FLYWAY_URL }}" \
+            -e FLYWAY_USER="${{ secrets.FLYWAY_USER }}" \
+            -e FLYWAY_PASSWORD="${{ secrets.FLYWAY_PASSWORD }}" \
+            redgate/flyway:latest \
             migrate | tee flyway-migrate-report.txt
 
       - name: Upload Flyway Migration Report
